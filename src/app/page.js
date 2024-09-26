@@ -1,101 +1,121 @@
-import Image from "next/image";
+"use client";
+import { useEffect, useState } from 'react';
+import DespesasDetalhadas from '../components/DespesasDetalhadas';
+import Hero from '../components/Hero';  
+import { fetchDespesas, fetchDespesasEmpenhadas, fetchReceitas } from '../api/tce'; 
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [despesasPorEvento, setDespesasPorEvento] = useState({});
+  const [totalReceitas, setTotalReceitas] = useState(0);
+  const [totalDespesas, setTotalDespesas] = useState(0);
+  const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear()); 
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+  // Função para agrupar despesas por evento
+  function agruparDespesasPorEvento(despesas) {
+    const despesasAgrupadas = {};
+    despesas.forEach(despesa => {
+      const evento = despesa.evento;
+      const valor = parseFloat(despesa.vl_despesa.replace(/\./g, '').replace(',', '.'));
+      if (despesasAgrupadas[evento]) {
+        despesasAgrupadas[evento] += valor;
+      } else {
+        despesasAgrupadas[evento] = valor;
+      }
+    });
+    return despesasAgrupadas;
+  }
+
+  // Função para carregar receitas e despesas por ano
+  useEffect(() => {
+    async function carregarDados() {
+      try {
+        let despesasTotal = 0;
+        let receitasTotal = 0;
+        let despesasAgrupadas = {};
+
+        // Loop para carregar dados de todos os meses
+        for (let mes = 1; mes <= 12; mes++) {
+          const despesas = await fetchDespesas('mogi-guacu', anoSelecionado, mes);
+          const despesasEmpenhadas = await fetchDespesasEmpenhadas('mogi-guacu', anoSelecionado, mes);
+          const receitas = await fetchReceitas('mogi-guacu', anoSelecionado, mes);
+
+          // Agrupando despesas por evento
+          despesasAgrupadas = {
+            ...despesasAgrupadas,
+            ...agruparDespesasPorEvento(despesas)
+          };
+
+          // Somando total de despesas empenhadas e receitas
+          despesasTotal += despesasEmpenhadas.reduce((total, item) => total + parseFloat(item.vl_despesa.replace(/\./g, '').replace(',', '.')), 0);
+          receitasTotal += receitas.reduce((total, item) => total + parseFloat(item.vl_arrecadacao.replace(/\./g, '').replace(',', '.')), 0);
+        }
+
+        // Atualiza os estados
+        setTotalDespesas(despesasTotal); // Somente despesas empenhadas
+        setTotalReceitas(receitasTotal); // Receitas totais
+        setDespesasPorEvento(despesasAgrupadas); // Despesas agrupadas por evento
+      } catch (error) {
+        console.error("Erro ao carregar os dados:", error);
+      }
+    }
+
+    carregarDados(); // Carregar dados quando o ano muda
+  }, [anoSelecionado]);
+
+  // Manipula a mudança de ano
+  const handleAnoChange = (event) => {
+    setAnoSelecionado(event.target.value);
+  };
+
+  return (
+    <main>
+      <section>
+        <label htmlFor="ano">Selecione o ano:</label>
+        <select id="ano" value={anoSelecionado} onChange={handleAnoChange}>
+          <option value="2024">2024</option>
+          <option value="2023">2023</option>
+          <option value="2022">2022</option>
+        </select>
+      </section>
+
+      {/* Componente Hero com comparativo de Receitas vs Despesas */}
+      <Hero totalDespesas={totalDespesas} totalReceitas={totalReceitas} ano={anoSelecionado} />
+
+      {/* Passa despesasPorEvento como prop para DespesasDetalhadas */}
+      <DespesasDetalhadas despesasPorEvento={despesasPorEvento} />
+
+      {/* Outros conteúdos */}
+      <section>
+        <h2>Outros Conteúdos</h2>
+        <p>Aqui você pode adicionar mais seções ou informações sobre a ONG, como missão, valores, etc.</p>
+      </section>
+
+      <style jsx>{`
+        main {
+          padding: 2rem;
+          background-color: #fff;
+          color: #333;
+        }
+        section {
+          margin-top: 2rem;
+        }
+        h2 {
+          margin-bottom: 1rem;
+          color: #0056b3;
+        }
+        p {
+          font-size: 1rem;
+          line-height: 1.6;
+        }
+        label {
+          margin-right: 0.5rem;
+          font-weight: bold;
+        }
+        select {
+          padding: 0.5rem;
+          font-size: 1rem;
+        }
+      `}</style>
+    </main>
   );
 }
